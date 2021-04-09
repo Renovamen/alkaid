@@ -1,0 +1,5 @@
+box2d-py==2.3.8
+gym==0.18.0
+torch>=1.4.0
+numpy!=1.16.0,<1.20.0
+matplotlib==3.4.1
