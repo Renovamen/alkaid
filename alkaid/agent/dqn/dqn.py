@@ -39,7 +39,7 @@ class DQN:
         self.eps_max = eps_max
         self.eps_decay = eps_decay
 
-        self.step = 0
+        self.timestep = 0
         self.soft_update_tau = 2 ** -8
         self.env = env
 
@@ -49,15 +49,22 @@ class DQN:
         Calculate exploration rate for epsilon-greedy exploration after every timestep.
         """
         return self.eps_min + (self.eps_max - self.eps_min) * math.exp(
-            -1.0 * self.step / self.eps_decay
+            -1.0 * self.timestep / self.eps_decay
         )
+
+    def set_timestep(self, timestep: int) -> None:
+        """
+        Update the current timestep before selecting an action
+
+        Args:
+            timestep (int): Ccurrent timestep
+        """
+        self.timestep = timestep
 
     def select_action(self, state: np.ndarray) -> torch.Tensor:
         """
         Select an action using epsilon-greedy for exploration.
         """
-        self.step += 1
-
         if np.random.rand() < self.eps:
             action = self.env.sample()
         else:
@@ -65,27 +72,6 @@ class DQN:
             q_value = self.actor(state.unsqueeze(0))
             action = q_value.squeeze().argmax(dim=-1).detach().cpu().numpy()
         return action
-
-    def update_buffer(self, buffer, n_steps: int) -> int:
-        """
-        Store the state transition tuple to replay buffer.
-
-        Args:
-            buffer: Experience replay buffer
-            n_steps (int): Explore ``n_steps`` steps in environment
-        """
-        for _ in range(n_steps):
-            self.env.render()
-            # select an action using epsilon-greedy
-            action = self.select_action(self.state)
-            # state transition
-            next_state, reward, done, _ = self.env.step(action)
-            # store state transition tuple to replay buffer
-            mask = 0.0 if done else self.gamma
-            buffer.append(self.state, next_state, reward, mask, action)
-            # update the current state
-            self.state = self.env.reset() if done else next_state
-        return n_steps
 
     def update_params(self, buffer, n_steps: int, batch_size: int) -> Tuple[float]:
         """
@@ -128,8 +114,8 @@ class DQN:
             self.critic.parameters()
         ):
             target_p.data.copy_(
-                current_p.data.__mul__(self.soft_update_tau) +
-                target_p.data.__mul__(1 - self.soft_update_tau)
+                current_p.data.mul_(self.soft_update_tau) +
+                target_p.data.mul_(1 - self.soft_update_tau)
             )
 
     def get_save(self) -> Any:

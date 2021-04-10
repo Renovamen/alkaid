@@ -12,7 +12,7 @@ from ..utils import get_datetime, mkdir
 
 class OffPolicyTrainer:
     """
-    A wrapper for off-policy training procedure.
+    A wrap of off-policy training procedure.
 
     Off-policy agents: DQN (and its variants), DDPG, TD3, SAC
 
@@ -28,7 +28,7 @@ class OffPolicyTrainer:
             (take random actions to add randomness to training)
         stop_if_reach_goal (bool, optional, default=True): Stop when reach
             ``env.target_reward`` or not
-        max_memo (int, optional, default=2**17): Capacity of replay buffer
+        replay_size (int, optional, default=2**17): Capacity of replay buffer
         eval_times (int, optional, default=2**2)
         print_gap (int, optional, default=2**8)
     """
@@ -43,7 +43,7 @@ class OffPolicyTrainer:
         update_interval: int = 2 ** 10,
         warmup_steps: int = 2 ** 10,
         stop_if_reach_goal: bool = True,
-        max_memo: int = 2 ** 17,
+        replay_size: int = 2 ** 17,
         eval_times: int = 2 ** 2,
         print_gap: int = 2 ** 6
     ):
@@ -56,8 +56,8 @@ class OffPolicyTrainer:
         self.eval_times = eval_times
         self.print_gap = print_gap
 
-        self.step = 0
-        self.max_eval_reward = 0.
+        self.timestep = 0
+        self.max_eval_reward = float('-inf')
         self.timestamp = get_datetime()
         self.last_print_time = time.time()
 
@@ -68,28 +68,11 @@ class OffPolicyTrainer:
         self.stop_if_reach_goal = stop_if_reach_goal
 
         self.buffer = ReplayBuffer(
-            capacity = max_memo + self.env.max_step,
+            capacity = replay_size + self.env.max_step,
             state_dim = self.env.state_dim,
             action_dim = 1 if self.env.is_discrete else self.env.action_dim,
             on_policy = False
         )
-
-    @torch.no_grad()
-    def warmup(self) -> None:
-        state = self.env.reset()
-
-        for step in range(self.warmup_steps):
-            # sample an action randomly
-            action = self.env.sample()
-            # state transition
-            next_state, reward, done, _ = self.env.step(action)
-
-            # store state transition tuple to replay buffer
-            mask = 0.0 if done else self.agent.gamma
-            self.buffer.append(state, next_state, reward, mask, action)
-
-            # update the current state
-            state = self.env.reset() if done else next_state
 
     def save(self, prefix: Optional[str] = None) -> None:
         """
@@ -110,39 +93,75 @@ class OffPolicyTrainer:
         mkdir(path)
 
         weights = self.agent.get_save()
-        checkpoint_path = os.path.join(path, "agent-{}.pt".format(self.step))
+        checkpoint_path = os.path.join(path, "agent-{}.pt".format(self.timestep))
         torch.save(weights, checkpoint_path)
 
+    def select_action(self, state: np.ndarray) -> np.ndarray:
+        """
+        Get the action to be performed on the environment
+
+        For the first few timesteps (warmup steps) it selects an action randomly
+        to introduce stochasticity to the environment start position.
+
+        Args:
+            state (np.ndarray): Current state of the environment
+
+        Returns:
+            action (np.ndarray): Action to be taken
+        """
+        if self.timestep < self.warmup_steps:
+            action = self.env.sample()
+        else:
+            action = self.agent.select_action(state)
+        return action
+
+    @torch.no_grad()
+    def update_buffer(self, state: np.ndarray) -> np.ndarray:
+        """
+        Store the state transition tuple to replay buffer.
+
+        Args:
+            state (np.ndarray): Current state of the environment
+        """
+        action = self.select_action(state)
+
+        # state transition
+        next_state, reward, done, _ = self.env.step(action)
+        # store state transition tuple to replay buffer
+        mask = 0.0 if done else self.agent.gamma
+        self.buffer.append(state, next_state, reward, mask, action)
+
+        # update the current state
+        state = self.env.reset() if done else next_state
+        return state
+
     def train(self):
-        self.warmup()
+        state = self.env.reset()
 
-        # pre-training and hard update
-        self.agent.update_params(self.buffer, self.warmup_steps, self.batch_size)
+        for self.timestep in range(0, self.max_timesteps):
+            self.agent.set_timestep(self.timestep)
 
-        self.step = self.warmup_steps
+            # explore and store the state transition tuple to replay buffer.
+            self.update_buffer(state)
 
-        if_reach_goal = False
+            # render the current frame
+            self.env.render()
 
-        while self.step <= self.max_timesteps:
-            with torch.no_grad():
-                steps = self.agent.update_buffer(
-                    buffer = self.buffer,
-                    n_steps = self.update_interval
-                )
+            if self.timestep == self.warmup_steps:
+                self.agent.update_params(self.buffer, self.warmup_steps, self.batch_size)
+            elif (self.timestep > self.warmup_steps) \
+                and (self.timestep - self.warmup_steps) % self.update_interval == 0:
+                # update model parameters
+                self.agent.update_params(self.buffer, self.update_interval, self.batch_size)
 
-            self.step += steps
+                # evaluate
+                is_reach_goal = self.evaluate()
 
-            self.agent.update_params(
-                buffer = self.buffer,
-                n_steps = self.update_interval,
-                batch_size = self.batch_size
-            )
+                # stop training after reach the goal
+                if self.stop_if_reach_goal and is_reach_goal:
+                    break
 
-            with torch.no_grad():
-                if_reach_goal = self.evaluate()
-
-            if self.stop_if_reach_goal and if_reach_goal:
-                break
+        self.env.close()
 
     @torch.no_grad()
     def evaluate(self) -> bool:
@@ -151,7 +170,6 @@ class OffPolicyTrainer:
         std_reward = float(np.std(reward_list))
 
         if avg_reward > self.max_eval_reward:
-            print(avg_reward, self.max_eval_reward)
             self.max_eval_reward = avg_reward
             self.save()
 
@@ -159,7 +177,7 @@ class OffPolicyTrainer:
         if is_reach_goal:
             print(
                 f"Target Reward: {self.env.target_reward:8.2f}\t"
-                f"Step: {self.step:8.2e}\t"
+                f"Step: {self.timestep:8.2e}\t"
                 f"Average Reward: {avg_reward:8.2f}\t"
                 f"Std Reward: {std_reward:8.2f}\t"
             )
@@ -167,7 +185,7 @@ class OffPolicyTrainer:
         if time.time() - self.last_print_time > self.print_gap:
             self.last_print_time = time.time()
             print(
-                f"Step: {self.step:8.2e}\t"
+                f"Step: {self.timestep:8.2e}\t"
                 f"Average Reward: {avg_reward:8.2f}\t"
                 f"Std Reward: {std_reward:8.2f}\t"
                 f"Max Reward: {self.max_eval_reward:8.2f}\t"
@@ -175,15 +193,12 @@ class OffPolicyTrainer:
 
         return is_reach_goal
 
+    @torch.no_grad()
     def get_episode_return(self) -> float:
         episode_return = 0.0
         state = self.eval_env.reset()
         for _ in range(self.eval_env.max_step):
-            state_tensor = torch.as_tensor((state,), device=self.agent.device)
-            action_tensor = self.agent.actor(state_tensor)
-            if self.eval_env.is_discrete:
-                action_tensor = action_tensor.argmax(dim=1)
-            action = action_tensor.cpu().numpy()[0]
+            action = self.select_action(state)
             state, reward, done, _ = self.eval_env.step(action)
             episode_return += reward
             if done:
