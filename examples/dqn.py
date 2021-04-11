@@ -19,5 +19,5 @@ if __name__ == '__main__':
     optim = torch.optim.Adam(model.parameters(), lr=LR)
     agent = DQN(model=model, optim=optim, env=env)
 
-    trainer = OffPolicyTrainer(env, agent, root=os.path.join(base_path, "checkpoints/dqn"))
+    trainer = OffPolicyTrainer(agent, env, root=os.path.join(base_path, "checkpoints/dqn"))
     trainer.train()

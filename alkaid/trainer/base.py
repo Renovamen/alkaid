@@ -1,181 +1,131 @@
 import os
-from abc import ABC
-from typing import Any, List, Optional, Union
+from copy import deepcopy
+from abc import ABC, abstractmethod
+from typing import Any, Optional
 
 import gym
 import numpy as np
 import torch
 
+from ..utils import get_datetime, mkdir
+
 class Trainer(ABC):
-    """Base Trainer Class
+    """
+    Base class for all trainers.
 
-    To be inherited specific use-cases
-
-    Attributes:
-        agent (object): Agent algorithm object
-        env (object): Environment
-        log_mode (:obj:`list` of str): List of different kinds of logging. Supported: ["csv", "stdout", "tensorboard"]
-        log_key (str): Key plotted on x_axis. Supported: ["timestep", "episode"]
-        log_interval (int): Timesteps between successive logging of parameters onto the console
-        logdir (str): Directory where log files should be saved.
-        epochs (int): Total number of epochs to train for
-        max_timesteps (int): Maximum limit of timesteps to train for
-        off_policy (bool): True if the agent is an off policy agent, False if it is on policy
-        save_interval (int): Timesteps between successive saves of the agent's important hyperparameters
-        save_model (str): Directory where the checkpoints of agent parameters should be saved
-        run_num (int): A run number allotted to the save of parameters
-        load_weights (str): Weights file
-        load_hyperparams (str): File to load hyperparameters
-        render (bool): True if environment is to be rendered during training, else False
-        evaluate_episodes (int): Number of episodes to evaluate for
-        seed (int): Set seed for reproducibility
+    Args:
+        agent: Agent
+        env (gym.Env): Environment
+        root (str): Directory where the checkpoints and logs should be saved
+        max_timesteps (int, optional, default=2**20): Maximum limit of
+            timesteps to train for
+        stop_if_reach_goal (bool, optional, default=True): Stop when reach
+            ``env.target_reward`` or not
+        eval_episodes (int, optional, default=4): Number of episodes to evaluate for
+        print_gap (int, optional, default=2**11): Timesteps between training info
+            loggings
     """
 
     def __init__(
         self,
         agent: Any,
         env: gym.Env,
-        log_mode: List[str] = ["stdout"],
-        log_key: str = "timestep",
-        log_interval: int = 10,
-        logdir: str = "logs",
-        epochs: int = 50,
-        max_timesteps: int = None,
-        off_policy: bool = False,
-        save_interval: int = 0,
-        save_model: str = "checkpoints",
-        run_num: int = None,
-        load_weights: str = None,
-        load_hyperparams: str = None,
-        render: bool = False,
-        evaluate_episodes: int = 25,
-        seed: Optional[int] = None,
-    ):
-        self.agent = agent
+        root: Optional[str] = None,
+        max_timesteps: int = 2 ** 20,
+        stop_if_reach_goal: bool = True,
+        eval_episodes: int = 4,
+        print_gap: int = 2 ** 11
+    ) -> None:
         self.env = env
-        self.log_mode = log_mode
-        self.log_key = log_key
-        self.log_interval = log_interval
-        self.logdir = logdir
-        self.epochs = epochs
+        self.eval_env = deepcopy(self.env)
+        self.agent = agent
+
+        if root:
+            self.root = os.path.expanduser(root)
+        else:
+            self.root = None
+        self.eval_episodes = eval_episodes
+        self.print_gap = print_gap
         self.max_timesteps = max_timesteps
-        self.off_policy = off_policy
-        self.save_interval = save_interval
-        self.save_model = save_model
-        self.run_num = run_num
-        self.load_weights = load_weights
-        self.load_hyperparams = load_hyperparams
-        self.render = render
-        self.evaluate_episodes = evaluate_episodes
+        self.stop_if_reach_goal = stop_if_reach_goal
 
-        if seed is not None:
-            set_seeds(seed, self.env)
+        self.timestep = 0
+        self.max_eval_reward = float('-inf')
+        self.timestamp = get_datetime()
+        self.last_print_step = 0
 
-        self.logger = Logger(logdir=logdir, formats=[*log_mode])
-
-    def train(self) -> None:
-        """Main training method
-
-        To be defined in inherited classes
+    def save(self, prefix: Optional[str] = None) -> None:
         """
-        raise NotImplementedError
-
-    def evaluate(self, render: bool = False) -> None:
-        """Evaluate performance of Agent
+        Save model weights and relevant hyperparameters of a given agent
 
         Args:
-            render (bool): Option to render the environment during evaluation
-        """
-        episode, episode_reward = 0, torch.zeros(self.env.n_envs)
-        episode_rewards = []
-        state = self.env.reset()
-        while True:
-            if self.off_policy:
-                action = self.agent.select_action(state, deterministic=True)
-            else:
-                action, _, _ = self.agent.select_action(state)
-
-            next_state, reward, done, _ = self.env.step(action)
-
-            if render:
-                self.env.render()
-
-            episode_reward += reward
-            state = next_state
-            if done.byte().any():
-                for i, di in enumerate(done):
-                    if di:
-                        episode += 1
-                        episode_rewards.append(episode_reward[i].clone().detach())
-                        episode_reward[i] = 0
-                        self.env.reset_single_env(i)
-            if episode == self.evaluate_episodes:
-                print(
-                    "Evaluated for {} episodes, Mean Reward: {:.2f}, Std Deviation for the Reward: {:.2f}".format(
-                        self.evaluate_episodes,
-                        np.mean(episode_rewards),
-                        np.std(episode_rewards),
-                    )
-                )
-                return
-
-    def save(self, timestep: int) -> None:
-        """Function to save all relevant parameters of a given agent
-
-        Args:
-            timestep: The timestep during training at which model is being saved
+            step: Timestep at which model is being saved
+            prefix (str, optional): Prefix of the save name
         """
         algo_name = self.agent.__class__.__name__
-        env_name = self.env.unwrapped.spec.id
+        env_name = self.env.name
 
-        directory = self.save_model
-        path = "{}/{}_{}".format(directory, algo_name, env_name)
+        name = "{}_{}_{}".format(algo_name, env_name, self.timestamp)
+        if prefix is not None:
+            name = prefix + name
 
-        run_num = self.run_num
+        path = os.path.join(self.root, name)
+        mkdir(path)
 
-        if run_num is None:
-            if not os.path.exists(path):
-                os.makedirs(path)
-                run_num = 0
-            elif list(os.scandir(path)) == []:
-                run_num = 0
-            else:
-                last_path = sorted(os.scandir(path), key=lambda d: d.stat().st_mtime)[
-                    -1
-                ].path
-                run_num = int(last_path[len(path) + 1 :].split("-")[0]) + 1
-            self.run_num = run_num
+        weights = self.agent.get_save()
+        checkpoint_path = os.path.join(path, "agent-{}.pt".format(self.timestep))
+        torch.save(weights, checkpoint_path)
 
-        filename_hyperparams = "{}/{}-log-{}.toml".format(path, run_num, timestep)
-        filename_weights = "{}/{}-log-{}.pt".format(path, run_num, timestep)
-        hyperparameters, weights = self.agent.get_hyperparams()
-        with open(filename_hyperparams, mode="w") as f:
-            toml.dump(hyperparameters, f)
+    @abstractmethod
+    def train(self) -> None:
+        """Training method, to be defined in inherited classes"""
+        pass
 
-        torch.save(weights, filename_weights)
+    @torch.no_grad()
+    def evaluate(self) -> bool:
+        """
+        Evaluate performance of agent
 
-    def load(self):
-        """Function to load saved parameters of a given agent"""
-        try:
-            self.checkpoint_hyperparams = {}
-            with open(self.load_hyperparams, mode="r") as f:
-                self.checkpoint_hyperparams = toml.load(f, _dict=dict)
+        Returns:
+            is_reach_goal (bool): Whether the agent reaches the target reward
+        """
+        reward_list = [self.get_episode_return() for _ in range(self.eval_episodes)]
+        avg_reward = np.average(reward_list)
+        std_reward = float(np.std(reward_list))
 
-            for key, item in self.checkpoint_hyperparams.items():
-                setattr(self, key, item)
+        if avg_reward > self.max_eval_reward:
+            self.max_eval_reward = avg_reward
+            if self.root:
+                self.save()
 
-        except FileNotFoundError:
-            raise Exception("Invalid hyperparameters File Name")
+        is_reach_goal = bool(self.max_eval_reward > self.env.target_reward)
+        if is_reach_goal:
+            print(
+                f"Target Reward: {self.env.target_reward:8.2f}\t"
+                f"Step: {self.timestep:8.2e}\t"
+                f"Average Reward: {avg_reward:8.2f}\t"
+                f"Std Reward: {std_reward:8.2f}\t"
+            )
 
-        try:
-            self.checkpoint_weights = torch.load(self.load_weights)
-            self.agent._load_weights(self.checkpoint_weights)
-        except FileNotFoundError:
-            raise Exception("Invalid weights File Name")
+        if self.timestep - self.last_print_step > self.print_gap:
+            self.last_print_step = self.timestep
+            print(
+                f"Step: {self.timestep:8.2e}\t"
+                f"Average Reward: {avg_reward:8.2f}\t"
+                f"Std Reward: {std_reward:8.2f}\t"
+                f"Max Reward: {self.max_eval_reward:8.2f}\t"
+            )
 
-        print("Loaded Pretrained Model weights and hyperparameters!")
+        return is_reach_goal
 
-    @property
-    def n_envs(self) -> int:
-        """Number of environments"""
-        return self.env.n_envs
+    @torch.no_grad()
+    def get_episode_return(self) -> float:
+        episode_return = 0.0
+        state = self.eval_env.reset()
+        for _ in range(self.eval_env.max_step):
+            action = self.select_action(state)
+            state, reward, done, _ = self.eval_env.step(action)
+            episode_return += reward
+            if done:
+                break
+        return self.eval_env.episode_return if hasattr(self.eval_env, 'episode_return') else episode_return

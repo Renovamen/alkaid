@@ -2,7 +2,9 @@ from typing import Any, Tuple, Optional
 import gym
 import numpy as np
 
-class GymWrapper(gym.Wrapper):
+from .base import EnvWrapper
+
+class GymWrapper(EnvWrapper, gym.Wrapper):
     def __init__(
         self,
         env: gym.Env,
@@ -11,11 +13,8 @@ class GymWrapper(gym.Wrapper):
         render: bool = True,
         verbose: bool = True
     ):
-        super(GymWrapper, self).__init__(env)
-
-        self.env = env
-        self.verbose = verbose
-        self.is_render = render
+        EnvWrapper.__init__(self, env, render, verbose)
+        gym.Wrapper.__init__(self, env)
 
         self.mean = mean
         self.std = std
@@ -127,23 +126,3 @@ class GymWrapper(gym.Wrapper):
     def close(self) -> None:
         """Closes environment"""
         self.env.close()
-
-    def summary(self) -> Tuple:
-        line = "{:>22}  {:>20}\n"
-
-        summary_str  = "---------------------------------------------\n"
-        summary_str += "       Summarization of the Environment      \n"
-        summary_str += "=============================================\n"
-        summary_str += line.format("Name", self.name)
-        summary_str += line.format("Discrete Action Space", self.is_discrete)
-        summary_str += line.format("Dim of State Space", self.state_dim)
-        summary_str += line.format("Dim of Action Space", self.action_dim)
-        summary_str += line.format("Max Action Value", self.action_max)
-        summary_str += line.format("Max Step", self.max_step)
-        summary_str += line.format("Target Reward", self.target_reward)
-        summary_str += "=============================================\n"
-
-        print(summary_str) if self.verbose else None
-
-        return self.name, self.state_dim, self.action_dim, self.action_max, \
-            self.is_discrete, self.target_reward, self.max_step
