@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, Union
 import numpy as np
 import torch
 from torch import nn
@@ -11,7 +11,7 @@ class Agent:
         env: gym.Env,
         gamma: float = 0.99,
         soft_update_tau: float = 2 ** -8,
-        device: Optional = None
+        device: Optional[Union[str, int, torch.device]] = None,
     ) -> None:
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,7 +57,7 @@ class Agent:
         pass
 
     @abstractmethod
-    def select_action(self, state: np.ndarray) -> torch.Tensor:
+    def select_action(self, state: np.ndarray) -> np.ndarray:
         """
         Select an action using epsilon-greedy for exploration.
 

@@ -37,7 +37,7 @@ class DQN(Agent):
             -1.0 * self.timestep / self.eps_decay
         )
 
-    def select_action(self, state: np.ndarray) -> torch.Tensor:
+    def select_action(self, state: np.ndarray) -> np.ndarray:
         """
         Select an action using epsilon-greedy for exploration.
 
