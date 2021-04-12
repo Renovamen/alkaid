@@ -6,14 +6,15 @@ sys.path.append(base_path)
 
 import gym
 import torch
-from alkaid.agent import DQN, DuelingDQN
+from alkaid.agent import DQN, DuelingDQN, DoubleDQN
 from alkaid.trainer import OffPolicyTrainer
 from alkaid.net import QNet
 from alkaid.env import GymWrapper
 
 AGENT_LIST = {
     'dqn': DQN,
-    'dueling-dqn': DuelingDQN
+    'dueling-dqn': DuelingDQN,
+    'double-dqn': DoubleDQN
 }
 
 LR = 1e-4

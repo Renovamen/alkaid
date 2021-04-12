@@ -8,6 +8,13 @@ from torch.nn import functional as F
 from ..base import Agent
 
 class DQN(Agent):
+    """
+    Implementation of Deep Q-Network (DQN) proposed in [1].
+
+    .. admonition:: References
+        1. "`Playing Atari with Deep Reinforcement Learning. \
+            <https://arxiv.org/abs/1312.5602>`_" Volodymyr Mnih, et al. arXiv 2013.
+    """
     def __init__(
         self,
         *args,
@@ -55,6 +62,17 @@ class DQN(Agent):
             action = q_value.squeeze().argmax(dim=-1).detach().cpu().numpy()
         return action
 
+    def target_q_value(
+        self, next_state: torch.Tensor, reward: torch.Tensor, mask: torch.Tensor
+    ) -> torch.Tensor:
+        # print('next_state: ', next_state.size())
+        next_q_target_value = self.target_model(next_state)
+        # print('next_q_target_value: ', next_q_target_value.size())
+        max_next_q_target_value = next_q_target_value.max(dim=1, keepdim=True)[0]
+        print('max_next_q_target_value: ', max_next_q_target_value.size())
+        target_q_value = reward + mask * max_next_q_target_value
+        return target_q_value
+
     def update_params(self, buffer, n_steps: int, batch_size: int) -> Tuple[float]:
         """
         Update parameters of the model using the sampled data from replay buffer.
@@ -67,8 +85,8 @@ class DQN(Agent):
         for _ in range(n_steps):
             with torch.no_grad():
                 state, next_state, reward, mask, action = buffer.sample(batch_size)
-                next_q_target_value = self.target_model(next_state).max(dim=1, keepdim=True)[0]
-                target_q_value = reward + mask * next_q_target_value
+                target_q_value = self.target_q_value(next_state, reward, mask)
+
             q_value = self.model(state).gather(1, action.type(torch.long))
 
             loss = F.mse_loss(q_value, target_q_value)

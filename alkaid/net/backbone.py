@@ -15,8 +15,8 @@ def linearblock(
 
 class MLP(nn.Module):
     """
-    A simple MLP backbone. Size of each layer is: (hidden_size[0], hidden_size[1]),
-    (hidden_size[1], hidden_size[2]), ..., (hidden_size[-2], hidden_size[-1]).
+    A simple MLP backbone. Size of each layer is: ``(hidden_size[0], hidden_size[1])``,
+    ``(hidden_size[1], hidden_size[2])``, ..., ``(hidden_size[-2], hidden_size[-1])``.
 
     Args:
         hidden_size (Sequence[int]): A list of sizes for linear layers
