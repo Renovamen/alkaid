@@ -13,23 +13,40 @@ class OffPolicyTrainer(Trainer):
 
     Off-policy agents: DQN (and its variants), DDPG, TD3, SAC
 
-    Args:
-        agent: Agent
-        env (gym.Env): Environment
-        root (str): Directory where the checkpoints and logs should be saved
-        max_timesteps (int, optional, default=2**20): Maximum limit of
-            timesteps to train for
-        batch_size (int, optional, default=2**8): Num of transitions sampled
-            from replay buffer
-        update_interval (int): Timesteps between network updates
-        warmup_steps (int, optional, default=2**10): Number of warmup steps
-            (take random actions to add randomness to training)
-        replay_size (int, optional, default=2**17): Capacity of replay buffer
-        stop_if_reach_goal (bool, optional, default=True): Stop when reach
-            ``env.target_reward`` or not
-        eval_episodes (int, optional, default=4): Number of episodes to evaluate for
-        print_gap (int, optional, default=2**11): Timesteps between training info
-            loggings
+    Parameters
+    ----------
+    agent: Agent
+        Agent
+
+    env : gym.Env
+        Environment
+
+    root : str
+        Directory where the checkpoints and logs should be saved
+
+    max_timesteps : int, optional, default=2**20
+        Maximum limit of timesteps to train for
+
+    batch_size : int, optional, default=2**8
+        Num of transitions sampled from replay buffer
+
+    update_interval : int
+        Timesteps between network updates
+
+    warmup_steps : int, optional, default=2**10
+        Number of warmup steps (take random actions to add randomness to training)
+
+    replay_size : int, optional, default=2**17
+        Capacity of replay buffer
+
+    stop_if_reach_goal : bool, optional, default=True
+        Stop when reach ``env.target_reward`` or not
+
+    eval_episodes : int, optional, default=4
+        Number of episodes to evaluate for
+
+    print_gap : int, optional, default=2**11
+        Timesteps between training info loggings
     """
 
     def __init__(
@@ -62,11 +79,15 @@ class OffPolicyTrainer(Trainer):
         For the first few timesteps (warmup steps) it selects an action randomly
         to introduce stochasticity to the environment start position.
 
-        Args:
-            state (np.ndarray): Current state of the environment
+        Parameters
+        ----------
+        state : np.ndarray
+            Current state of the environment
 
-        Returns:
-            action (np.ndarray): Action to be taken
+        Returns
+        -------
+        action : np.ndarray
+            Action to be taken
         """
         if self.timestep < self.warmup_steps:
             action = self.env.sample()
@@ -79,11 +100,15 @@ class OffPolicyTrainer(Trainer):
         """
         Store the state transition tuple to replay buffer.
 
-        Args:
-            state (np.ndarray): Current state of the environment
+        Parameters
+        ----------
+        state : np.ndarray
+            Current state of the environment
 
-        Returns:
-            next_state (np.ndarray): Next state
+        Returns
+        -------
+        next_state : np.ndarray
+            Next state
         """
         action = self.select_action(state)
 

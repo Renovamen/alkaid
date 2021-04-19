@@ -11,9 +11,10 @@ class DQN(Agent):
     """
     Implementation of Deep Q-Network (DQN) proposed in [1].
 
-    .. admonition:: References
-        1. "`Playing Atari with Deep Reinforcement Learning. \
-            <https://arxiv.org/abs/1312.5602>`_" Volodymyr Mnih, et al. arXiv 2013.
+    References
+    ----------
+    1. "`Playing Atari with Deep Reinforcement Learning. \
+        <https://arxiv.org/abs/1312.5602>`_" Volodymyr Mnih, et al. arXiv 2013.
     """
     def __init__(
         self,
@@ -48,11 +49,15 @@ class DQN(Agent):
         """
         Select an action using epsilon-greedy for exploration.
 
-        Args:
-            state (np.ndarray): Current state of the environment
+        Parameters
+        ----------
+        state : np.ndarray
+            Current state of the environment
 
-        Returns:
-            action (np.ndarray): Action taken by the agent
+        Returns
+        -------
+        action : np.ndarray
+            Action taken by the agent
         """
         if np.random.rand() < self.eps:
             action = self.env.sample()
@@ -65,11 +70,8 @@ class DQN(Agent):
     def target_q_value(
         self, next_state: torch.Tensor, reward: torch.Tensor, mask: torch.Tensor
     ) -> torch.Tensor:
-        # print('next_state: ', next_state.size())
         next_q_target_value = self.target_model(next_state)
-        # print('next_q_target_value: ', next_q_target_value.size())
         max_next_q_target_value = next_q_target_value.max(dim=1, keepdim=True)[0]
-        print('max_next_q_target_value: ', max_next_q_target_value.size())
         target_q_value = reward + mask * max_next_q_target_value
         return target_q_value
 
@@ -77,10 +79,16 @@ class DQN(Agent):
         """
         Update parameters of the model using the sampled data from replay buffer.
 
-        Args:
-            buffer: Experience replay buffer
-            n_steps (int): Explore ``n_steps`` steps in environment
-            batch_size (int): Batch size of the data to be sampled from replay buffer
+        Parameters
+        ----------
+        buffer
+            Experience replay buffer
+
+        n_steps : int
+            Explore ``n_steps`` steps in environment
+
+        batch_size : int
+            Batch size of the data to be sampled from replay buffer
         """
         for _ in range(n_steps):
             with torch.no_grad():

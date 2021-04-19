@@ -1,6 +1,6 @@
 # Alkaid
 
-Trying to implement some reinforcement learning algorithms with easy to read code, hight speed and well performance.
+Trying to implement some reinforcement learning algorithms with easy to read code, high speed and well performance.
 
 The supported algorithms currently include:
 
