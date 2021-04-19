@@ -72,7 +72,7 @@ class Trainer(ABC):
 
         self.logger = logger
 
-        if self.logger.log_basename is None:
+        if self.logger and self.logger.log_basename is None:
             self.logger.log_basename = self.basename
 
         self.ploter = ploter

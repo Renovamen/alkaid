@@ -7,8 +7,7 @@ from .common import get_datetime, mkdir
 
 class Logger:
     """
-    A loggger to log and visualize (based on Tensorboard or ``alkaid.utils.Ploter``)
-    statistics.
+    Log training statistics and visualize them via Tensorboard.
 
     Parameters
     ----------
