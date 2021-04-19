@@ -2,7 +2,6 @@ from numbers import Number
 from typing import Union, Dict
 from collections import OrderedDict
 import numpy as np
-import torch
 
 class Metric:
     """Keep track of a single metric."""

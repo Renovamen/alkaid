@@ -10,7 +10,7 @@ from alkaid.agent import DQN, DuelingDQN, DoubleDQN
 from alkaid.trainer import OffPolicyTrainer
 from alkaid.net import QNet
 from alkaid.env import GymWrapper
-from alkaid.utils import Logger
+from alkaid.utils import Logger, Ploter
 
 AGENT_LIST = {
     'dqn': DQN,
@@ -26,7 +26,13 @@ if __name__ == '__main__':
     model = QNet(state_dim=env.state_dim, action_dim=env.action_dim)
     optim = torch.optim.Adam(model.parameters(), lr=LR)
     agent = AGENT_LIST[AGENT](model=model, optim=optim, env=env)
-    logger = Logger(root=os.path.join(base_path, "logs/dqn"), tensorboard=True)
+    logger = Logger(root=os.path.join(base_path, "logs/dqn"))
+    ploter = Ploter(root=os.path.join(base_path, "figures/dqn"))
 
-    trainer = OffPolicyTrainer(agent, env, root=os.path.join(base_path, "checkpoints/dqn"), logger=logger)
+    trainer = OffPolicyTrainer(
+        agent, env,
+        root = os.path.join(base_path, "checkpoints/dqn"),
+        logger = logger,
+        ploter = ploter
+    )
     trainer.train()

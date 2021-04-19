@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 from ..agent import Agent
-from ..utils import MetricTracker, Logger, get_datetime, mkdir
+from ..utils import MetricTracker, Logger, Ploter, get_datetime, mkdir
 
 class Trainer(ABC):
     """
@@ -36,6 +36,9 @@ class Trainer(ABC):
 
     logger : Logger, optional
         An instance of :class:`~alkaid.utils.Logger` class
+
+    ploter : Ploter, optional
+        An instance of :class:`~alkaid.utils.Ploter` class
     """
 
     def __init__(
@@ -46,7 +49,8 @@ class Trainer(ABC):
         max_timesteps: int = 2 ** 20,
         stop_if_reach_goal: bool = True,
         eval_episodes: int = 4,
-        logger: Optional[Logger] = None
+        logger: Optional[Logger] = None,
+        ploter: Optional[Ploter] = None
     ) -> None:
         self.env = env
         self.eval_env = deepcopy(self.env)
@@ -65,10 +69,18 @@ class Trainer(ABC):
         self.timestamp = get_datetime()
 
         self.tracker = MetricTracker('test/rew', 'test/rew_std')
+
         self.logger = logger
 
         if self.logger.log_basename is None:
             self.logger.log_basename = self.basename
+
+        self.ploter = ploter
+
+        if self.ploter:
+            self.ploter.add_line(self.basename)
+            if self.ploter.save_name is None:
+                self.ploter.save_name = self.basename
 
     @property
     def basename(self) -> str:
@@ -132,6 +144,10 @@ class Trainer(ABC):
 
         if self.logger is not None:
             self.logger.log(data=self.tracker.metrics, step=self.timestep)
+
+        if self.ploter is not None:
+            self.ploter.append([np.min(reward_list), avg_reward, np.max(reward_list)])
+            self.ploter.plot()
 
         return is_reach_goal
 

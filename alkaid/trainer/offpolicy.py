@@ -72,6 +72,9 @@ class OffPolicyTrainer(Trainer):
             on_policy = False
         )
 
+        if self.ploter:
+            self.ploter.set_x_scale(self.update_interval)
+
     def select_action(self, state: np.ndarray) -> np.ndarray:
         """
         Get the action to be performed on the environment

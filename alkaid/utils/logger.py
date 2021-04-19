@@ -7,19 +7,16 @@ from .common import get_datetime, mkdir
 
 class Logger:
     """
-    A loggger to log and visualize (based on Tensorboard or ``alkaid.utils.ploter``)
+    A loggger to log and visualize (based on Tensorboard or ``alkaid.utils.Ploter``)
     statistics.
 
     Parameters
     ----------
     root : str
-        Root directory of the log files
+        Root directory to save log files
 
     log_basename : str, optional
         Base name of the log file
-
-    log_interval : int, optional, default=2**11
-        Timesteps between info loggings
 
     tensorboard : bool, optional, default=False
         Enable tensorboard or not (``tensorboard`` package is required)
@@ -31,7 +28,6 @@ class Logger:
         self,
         root: str,
         log_basename: Optional[str] = None,
-        log_interval: int = 2**11,
         tensorboard: bool = False,
         verbose: bool = True
     ) -> None:
@@ -39,7 +35,6 @@ class Logger:
 
         self.timestamp = get_datetime()
         self.log_basename = log_basename
-        self.log_interval = log_interval
         self.verbose = verbose
 
         self.text_path = os.path.join(self.root, 'text')
@@ -99,7 +94,7 @@ class Logger:
             f.write(text)
 
     def log(
-        self, data: dict, step: int, force: bool = False, addition: Optional[str] = None
+        self, data: dict, step: int, addition: Optional[str] = None
     ) -> None:
         """
         Log statistics generated during updating.
@@ -112,9 +107,6 @@ class Logger:
         step : int
             Step of the data to be logged
 
-        force : bool, optional, default=False
-            Force to log the data, regardless of ``log_interval``
-
         addition : str, optional
             Additional information to be logged
         """
@@ -123,19 +115,16 @@ class Logger:
         if addition:
             text = f"{addition}\t" + text
 
-        if step % self.log_interval == 0 or force:
-            for name, value in data.items():
-                # log statistics to Tensorboard
-                if self.writter is not None:
-                    self.write_tensorboard(name, step, value.recent)
-                # log statistics to text files
-                text += '{name}: {recent:7.2f} (max: {max:7.2f}, min: {min:7.2f})\t'.format(
-                    name = name, recent = value.recent, max = value.max, min = value.min
-                )
+        for name, value in data.items():
+            # log statistics to Tensorboard
+            if self.writter is not None:
+                self.write_tensorboard(name, step, value.recent)
+            # log statistics to text files
+            text += '{name}: {recent:7.2f}\t'.format(name=name, recent=value.recent)
 
-            self.write_text(text + '\n')
+        self.write_text(text + '\n')
 
-            if self.verbose:
-                print(text)
+        if self.verbose:
+            print(text)
 
-            self.last_log_step = step
+        self.last_log_step = step
