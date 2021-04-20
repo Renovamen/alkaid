@@ -4,6 +4,7 @@ import os
 from numbers import Number
 from typing import Optional
 import numpy as np
+import pickle
 
 from .common import get_datetime, mkdir
 
@@ -18,7 +19,7 @@ class Ploter:
 
     save_name : str, optional
         Base name of the saved figure. This can be automatically set by
-        ``alkaid.trainer.Trainer``.
+        :func:`alkaid.trainer.Trainer`.
 
     title : str, optional, default=''
         Title of the figure
@@ -29,7 +30,7 @@ class Ploter:
     label_x : str, optional, default='Time Step'
         Label of the X-axis
 
-    label_y : str, optional, default='Reward'
+    label_y : str, optional, default='Score'
         Label of the Y-axis
 
     label_size : int, optional, default=15
@@ -38,7 +39,7 @@ class Ploter:
     x_scale : Number, optional, default=1
         Scale of the X-axis. For example, you plot a point every 1000 steps, then
         your ``x_scale`` may be ``1000``. This can be automatically set by
-        ``alkaid.trainer.Trainer``.
+        :func:`alkaid.trainer.Trainer`.
     """
     def __init__(
         self,
@@ -47,7 +48,7 @@ class Ploter:
         title: str = '',
         title_size: int = 20,
         label_x: str = 'Time Step',
-        label_y: str = 'Reward',
+        label_y: str = 'Score',
         label_size: int = 15,
         x_scale: Number = 1
     ) -> None:
@@ -64,6 +65,9 @@ class Ploter:
         self._label_size = label_size
         self._x_scale = x_scale
 
+        self.clear()
+
+    def clear(self) -> None:
         self._lines = []
         self._line_names = []
         self._line_styles = []
@@ -94,13 +98,14 @@ class Ploter:
         return self._line_names.index(name)
 
     def plot(self) -> None:
+        """Visualize training results in a figure."""
         try:
             import pandas as pd
             import matplotlib
             matplotlib.use("Agg")
             from matplotlib import pyplot as plt
             import seaborn as sns
-            sns.set()
+            sns.set(style='whitegrid')
         except ImportError:
             print(
                 "Warning: 'alkaid.utils.Ploter' requires pandas, matplotlib and "
@@ -142,3 +147,30 @@ class Ploter:
         plt.savefig(os.path.join(self.root, name + '.jpg'))
 
         plt.close()
+
+    def load_from_pkl(self, log_dir: str):
+        """
+        Load the ``pkl`` format data logged by :func:`alkaid.utils.Logger`. This
+        is useful when you want to plot results of different agents in a same figure.
+
+        Parameters
+        ----------
+        log_dir: str
+            Path to the log directory. All ``.pkl`` files under this path will be
+            loaded, file name of each will be served as its corresponding line label.
+        """
+        self.clear()
+
+        for root, _, files in os.walk(log_dir):
+            for fname in files:
+                if not fname.endswith('pkl'):
+                    continue
+
+                fpath = os.path.join(root, fname)
+                with open(fpath, 'rb') as f:
+                    data = pickle.loads(f.read())
+
+                self.add_line(
+                    name = fname[:-4],
+                    data = [data['test/rew'], data['test/rew_min'], data['test/rew_max']]
+                )
