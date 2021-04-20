@@ -68,19 +68,16 @@ class Trainer(ABC):
         self.timestep = 0
         self.timestamp = get_datetime()
 
-        self.tracker = MetricTracker('test/rew', 'test/rew_std')
+        self.tracker = MetricTracker('test/rew', 'test/rew_std', 'test/rew_min', 'test/rew_max')
 
         self.logger = logger
+        self.ploter = ploter
 
         if self.logger and self.logger.log_basename is None:
             self.logger.log_basename = self.basename
 
-        self.ploter = ploter
-
-        if self.ploter:
-            self.ploter.add_line(self.basename)
-            if self.ploter.save_name is None:
-                self.ploter.save_name = self.basename
+        if self.ploter and self.ploter.save_name is None:
+            self.ploter.save_name = self.basename
 
     @property
     def basename(self) -> str:
@@ -124,29 +121,46 @@ class Trainer(ABC):
             Whether the agent reaches the target reward
         """
         reward_list = [self.get_episode_return() for _ in range(self.eval_episodes)]
+
         avg_reward = np.average(reward_list)
         std_reward = np.std(reward_list)
+        min_reward, max_reward = np.min(reward_list), np.max(reward_list)
 
         if avg_reward > self.tracker['test/rew'].max and self.root:
             self.save()
 
         self.tracker.update('test/rew', avg_reward)
         self.tracker.update('test/rew_std', std_reward)
+        self.tracker.update('test/rew_min', min_reward)
+        self.tracker.update('test/rew_max', max_reward)
+
+        logged_data = {
+            'test/rew': self.tracker['test/rew'],
+            'test/rew_std': self.tracker['test/rew_std']
+        }
 
         is_reach_goal = bool(self.tracker['test/rew'].max > self.env.target_reward)
         if is_reach_goal and self.logger is not None:
             self.logger.log(
-                data = self.tracker.metrics,
+                data = logged_data,
                 step = self.timestep,
                 force = True,
                 addition = f"READCH GOAL! Target Reward: {self.env.target_reward:8.2f}"
             )
 
         if self.logger is not None:
-            self.logger.log(data=self.tracker.metrics, step=self.timestep)
+            self.logger.log(data=logged_data, step=self.timestep)
+            self.logger.log_to_pkl(data=self.tracker.data)
 
         if self.ploter is not None:
-            self.ploter.append([np.min(reward_list), avg_reward, np.max(reward_list)])
+            self.ploter.add_line(
+                name = self.basename,
+                data = [
+                    self.tracker['test/rew'].data,
+                    self.tracker['test/rew_min'].data,
+                    self.tracker['test/rew_max'].data
+                ]
+            )
             self.ploter.plot()
 
         return is_reach_goal

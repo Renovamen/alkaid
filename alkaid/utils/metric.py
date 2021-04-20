@@ -19,6 +19,11 @@ class Metric:
         self._data = np.append(self._data, value)
 
     @property
+    def data(self) -> np.ndarray:
+        """Return the collected data."""
+        return self._data
+
+    @property
     def mean(self) -> np.number:
         """Return the average value of the collected data."""
         return self._data.mean()
@@ -82,6 +87,11 @@ class MetricTracker:
     def metrics(self) -> Dict[str, Metric]:
         """Return a ``dict`` containing all metrics."""
         return self._metrics
+
+    @property
+    def data(self) -> Dict[str, np.ndarray]:
+        """Return a ``dict`` containing value of all metrics."""
+        return {k: v.data for k, v in self._metrics.items()}
 
     def __getitem__(self, index: str) -> Metric:
         return self._metrics[index]

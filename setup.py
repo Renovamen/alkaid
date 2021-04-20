@@ -16,7 +16,7 @@ setup(
     description = 'Reinforcement learning.',
     long_description = readme(),
     long_description_content_type = 'text/markdown',
-    keywords=['pytorch', 'machine learning', 'reinforcemen learning'],
+    keywords=['pytorch', 'machine learning', 'reinforcement learning'],
     license = 'MIT',
     author = 'Xiaohan Zou',
     author_email = 'renovamenzxh@gmail.com',

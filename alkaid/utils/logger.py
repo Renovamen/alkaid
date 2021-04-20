@@ -1,9 +1,11 @@
 import os
+import pickle
 import numpy as np
 from numbers import Number
-from typing import Union, Optional
+from typing import Union, Optional, Dict
 
 from .common import get_datetime, mkdir
+from .metric import Metric
 
 class Logger:
     """
@@ -39,6 +41,9 @@ class Logger:
         self.text_path = os.path.join(self.root, 'text')
         mkdir(self.text_path)
 
+        self.pkl_path = os.path.join(self.root, 'pkl')
+        mkdir(self.pkl_path)
+
         self.writter = None
         if tensorboard:
             self.tensorboard_path = os.path.join(self.root, 'tensorboard', self.log_name)
@@ -60,7 +65,7 @@ class Logger:
         else:
             return self.timestamp
 
-    def write_tensorboard(
+    def _write_tensorboard(
         self, key: str, x: Union[Number, np.number], y: Union[Number, np.number]
     ) -> None:
         """
@@ -79,7 +84,7 @@ class Logger:
         """
         self.writter.add_scalar(key, y, global_step=x)
 
-    def write_text(self, text: str) -> None:
+    def _write_text(self, text: str) -> None:
         """
         Log data into text files.
 
@@ -93,10 +98,10 @@ class Logger:
             f.write(text)
 
     def log(
-        self, data: dict, step: int, addition: Optional[str] = None
+        self, data: Dict[str, Metric], step: int, addition: Optional[str] = None
     ) -> None:
         """
-        Log statistics generated during updating.
+        Log statistics generated during updating in human readable format.
 
         Parameters
         ----------
@@ -117,13 +122,17 @@ class Logger:
         for name, value in data.items():
             # log statistics to Tensorboard
             if self.writter is not None:
-                self.write_tensorboard(name, step, value.recent)
+                self._write_tensorboard(name, step, value.recent)
             # log statistics to text files
             text += '{name}: {recent:7.2f}\t'.format(name=name, recent=value.recent)
 
-        self.write_text(text + '\n')
+        self._write_text(text + '\n')
 
         if self.verbose:
             print(text)
 
         self.last_log_step = step
+
+    def log_to_pkl(self, data: Dict[str, np.ndarray]) -> None:
+        log_file_path = os.path.join(self.pkl_path, self.log_name + '.pkl')
+        pickle.dump(data, open(log_file_path, 'wb'))

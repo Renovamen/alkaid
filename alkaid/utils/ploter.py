@@ -42,7 +42,7 @@ class Ploter:
     """
     def __init__(
         self,
-        root: str = None,
+        root: str,
         save_name: Optional[str] = None,
         title: str = '',
         title_size: int = 20,
@@ -77,28 +77,21 @@ class Ploter:
         self._label_y = y
         self._label_size = font_size
 
-    def set_x_scale(self, x_scale: Number):
+    def set_x_scale(self, x_scale: Number) -> None:
         self._x_scale = x_scale
 
-    def add_line(self, name: str, style: str = None) -> None:
-        self._lines.append([])
-        self._line_names.append(name)
-        self._line_styles.append(style)
-
-    def to_index(self, name: Optional[str] = None) -> int:
-        if name:
-            return self._line_names.index(name)
+    def add_line(self, name: str, data: list, style: str = None) -> None:
+        if name in self._line_names:
+            index = self._to_index(name)
+            self._lines[index] = data
+            self._line_styles[index] = style
         else:
-            return 0
+            self._lines.append(data)
+            self._line_names.append(name)
+            self._line_styles.append(style)
 
-    def append(self, data: list, name: Optional[str] = None):
-        index = self.to_index(name)
-
-        for (i, val) in enumerate(data):
-            if i < len(self._lines[index]):
-                self._lines[index][i].append(val)
-            else:
-                self._lines[index].append([val])
+    def _to_index(self, name: str) -> int:
+        return self._line_names.index(name)
 
     def plot(self) -> None:
         try:

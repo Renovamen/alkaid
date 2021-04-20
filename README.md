@@ -16,8 +16,8 @@ The supported algorithms currently include:
 
 Other features:
 
-- **Modularity and Readability**: Implement agents, networks, replay buffers, etc. as configurable modules and in a easy to read way
-- **Logging and Visualization**: Easily logging training statistics and visualize them using Tensorboard or `alkaid.utils.Ploter`
+- **Modularity and Readability**: Implement agents, networks, replay buffers, etc as configurable modules and in a easy to read way
+- **Logging and Visualization**: Easily logging training statistics and visualizing them using Tensorboard or `alkaid.utils.Ploter`
 
 
 &nbsp;
