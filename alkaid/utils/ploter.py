@@ -1,5 +1,3 @@
-# inspired by: https://zhuanlan.zhihu.com/p/75477750
-
 import os
 from typing import Optional, Tuple, Union
 import numpy as np
@@ -34,6 +32,43 @@ COLOR_LIST = [
     'darkred',
     'darkblue'
 ]
+
+def smooth(data: list, window: int, mode='single'):
+    """
+    Smooths values using a sliding window.
+
+    Parameters
+    ----------
+    data : list
+        Data to be smoothed
+
+    window : int
+        Size of the kernel window
+
+    mode : str, optional, default='single'
+        'single' / 'both'. If mode = 'single', average the window [i - window, i].
+        If mode = 'both', average the window [i - window, i + window].
+    """
+    assert mode in ('both', 'single')
+
+    data = np.asarray(data)
+
+    if window <= 1:
+        return data
+
+    if mode == 'both':
+        if len(data) < 2 * window + 1:
+            return np.ones_like(data) * data.mean()
+        kernel = np.ones(2 * window + 1)
+    elif mode == 'single':
+        if window > len(data):
+            return np.ones_like(data) * data.mean()
+        kernel = np.ones(window)
+
+    out = np.convolve(data, kernel, mode='same') / np.convolve(np.ones_like(data), kernel, mode='same')
+
+    return out
+
 
 class Ploter:
     """
@@ -108,21 +143,36 @@ class Ploter:
     ) -> None:
         self.lines[name] = dict(mean=mean, min=min_bound, max=max_bound)
 
-    def plot(self) -> None:
-        """Visualize training results in a figure."""
+    def plot(self, smooth_window: int = 0, smooth_mode: str = 'single') -> None:
+        """
+        Visualize training results in a figure.
+
+        Parameters
+        ----------
+        smooth_window : int
+            Size of the kernel window
+
+        smooth_mode : str, optional, default='single'
+            'single' / 'both'. If mode = 'single', average using window [i - smooth_window, i].
+            If mode = 'both', average using window [i - smooth_window, i + smooth_window].
+        """
 
         fig, ax = plt.subplots(figsize=self.figsize)
 
         # lines
         for i, (agent, data) in enumerate(self.lines.items()):
             x = np.arange(len(data['mean'])) * self.x_scale
-            print(x)
             color = COLOR_LIST[i % len(COLOR_LIST)]
+
             # plot intervals between min and max bound
             if data['min'] is not None and data['max'] is not None:
-                ax.fill_between(x, data['min'], data['max'], color=color, alpha=0.1, lw=0)
+                y_min = smooth(data['min'], smooth_window, smooth_mode)
+                y_max = smooth(data['max'], smooth_window, smooth_mode)
+                ax.fill_between(x, y_min, y_max, color=color, alpha=0.1, lw=0)
+
             # plot means
-            ax.plot(x, data['mean'], c=color, label=agent, alpha=0.5, lw=1)
+            y = smooth(data['mean'], smooth_window, smooth_mode)
+            ax.plot(x, y, c=color, label=agent, alpha=0.5, lw=1)
 
         # legend
         ax.legend()
@@ -148,20 +198,20 @@ class Ploter:
 
         plt.close()
 
-    def load_from_pkl(self, log_dir: str):
+    def load_data(self, data_dir: str):
         """
         Load the ``pkl`` format data logged by :func:`alkaid.utils.Logger`. This
         is useful when you want to plot results of different agents in a same figure.
 
         Parameters
         ----------
-        log_dir: str
+        data_dir: str
             Path to the log directory. All ``.pkl`` files under this path will be
             loaded, file name of each will be served as its corresponding line label.
         """
         self.clear()
 
-        for root, _, files in os.walk(log_dir):
+        for root, _, files in os.walk(data_dir):
             for fname in files:
                 if not fname.endswith('pkl'):
                     continue

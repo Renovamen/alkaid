@@ -8,18 +8,27 @@ class QNet(nn.Module):
     """
     A simple network for DQN and its variants.
 
-    Args:
-        state_dim (int): Dimension of state space
-        action_dim (int): Dimension of action space
-        hidden_size (Sequence[int]): A list of sizes for all middle linear layers.
-        activation (Union[nn.Module, Sequence[nn.Module]], optional, default=nn.ReLu()):
-            Activation function(s) after each layer. You can pass an activation
-            function to be used for all layers, or a list of activation functions
-            for different layers. ``None`` to no activation.
-        softmax (bool, optional, default=False): Apply a softmax over the last
-            layer's output or not
-        dueling (bool, optional, default=False): Use dueling network or not (for
-            Dueling DQN).
+    Parameters
+    ----------
+    state_dim : int
+        Dimension of state space
+
+    action_dim : int
+        Dimension of action space
+
+    hidden_size : Sequence[int]
+        A list of sizes for all middle linear layers.
+
+    activation : Union[nn.Module, Sequence[nn.Module]], optional, default=nn.ReLu()
+        Activation function(s) after each layer. You can pass an activation
+        function to be used for all layers, or a list of activation functions
+        for different layers. ``None`` to no activation.
+
+    softmax : bool, optional, default=False
+        Apply a softmax over the last layer's output or not
+
+    dueling : bool, optional, default=False
+        Use dueling network or not (for Dueling DQN)
     """
 
     def __init__(

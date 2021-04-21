@@ -18,14 +18,18 @@ class MLP(nn.Module):
     A simple MLP backbone. Size of each layer is: ``(hidden_size[0], hidden_size[1])``,
     ``(hidden_size[1], hidden_size[2])``, ..., ``(hidden_size[-2], hidden_size[-1])``.
 
-    Args:
-        hidden_size (Sequence[int]): A list of sizes for linear layers
-        activation (Union[nn.Module, Sequence[nn.Module]], optional, default=nn.ReLu()):
-            Activation function(s) after each layer. You can pass an activation
-            function to be used for all layers, or a list of activation functions
-            for different layers. ``None`` to no activation.
-        activ_last_layer (bool, optional, default=False): Place an activation
-            function after the last linear layer or not.
+    Parameters
+    ----------
+    hidden_size : Sequence[int]
+        A list of sizes for linear layers
+
+    activation : Union[nn.Module, Sequence[nn.Module]], optional, default=nn.ReLu()
+        Activation function(s) after each layer. You can pass an activation
+        function to be used for all layers, or a list of activation functions
+        for different layers. ``None`` to no activation.
+
+    activ_last_layer : bool, optional, default=False
+        Place an activation function after the last linear layer or not.
     """
 
     def __init__(
