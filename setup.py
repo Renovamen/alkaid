@@ -26,6 +26,7 @@ setup(
         'numpy!=1.16.0,<1.20.0',
         'torch>=1.4.0',
         'box2d-py>=2.3.8',
-        'gym>=0.18.0'
+        'gym>=0.18.0',
+        'matplotlib'
     ]
 )

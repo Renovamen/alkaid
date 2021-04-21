@@ -155,11 +155,9 @@ class Trainer(ABC):
         if self.ploter is not None:
             self.ploter.add_line(
                 name = self.basename,
-                data = [
-                    self.tracker['test/rew'].data,
-                    self.tracker['test/rew_min'].data,
-                    self.tracker['test/rew_max'].data
-                ]
+                mean = self.tracker['test/rew'].data,
+                min_bound = self.tracker['test/rew_min'].data,
+                max_bound = self.tracker['test/rew_max'].data
             )
             self.ploter.plot()
 
